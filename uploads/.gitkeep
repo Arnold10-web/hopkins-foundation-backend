@@ -1,0 +1,3 @@
+# Keep this file so the uploads directory is tracked in git
+# Images will be stored here in development
+# Railway will handle file storage in production

@@ -1,0 +1,494 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+  VOLUNTEER
+  SYSTEM_ADMIN
+}
+
+enum DonationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DonationType {
+  ONE_TIME
+  RECURRING
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  firstName       String?
+  lastName        String?
+  phone           String?
+  role            Role      @default(MEMBER)
+  isEmailVerified Boolean   @default(false)
+  profileImage    String?
+  memberSince     DateTime  @default(now())
+  lastLogin       DateTime?
+  
+  // Relations
+  donations       Donation[]
+  contentAccess   ContentAccess[]
+  passwordResets  PasswordReset[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("password_resets")
+}
+
+model Donation {
+  id            String         @id @default(cuid())
+  amount        Int            // Amount in cents
+  currency      String         @default("USD")
+  paymentId     String?        @unique // Generic payment ID (not Stripe-specific)
+  status        DonationStatus @default(PENDING)
+  type          DonationType   @default(ONE_TIME)
+  donorEmail    String?        // For guest donations
+  donorName     String?        // For guest donations
+  campaign      String?        // Campaign identifier
+  isAnonymous   Boolean        @default(false)
+  
+  // Relations
+  userId        String?
+  user          User?          @relation(fields: [userId], references: [id])
+  
+  // Metadata
+  paymentMethod String?
+  receiptSent   Boolean        @default(false)
+  thankYouSent  Boolean        @default(false)
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("donations")
+}
+
+model Story {
+  id              String    @id @default(cuid())
+  title           String
+  content         String
+  excerpt         String
+  slug            String    @unique
+  featuredImage   String?
+  featuredVideo   String?
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  category        String?
+  tags            String[]
+  readTime        Int?      // Reading time in minutes
+  views           Int       @default(0)
+  
+  // Source Attribution (for stories from other websites)
+  isExternal      Boolean   @default(false)  // True if story is from another website
+  sourceUrl       String?   // URL of the original story
+  sourceName      String?   // Name of the original website/publication
+  sourceAuthor    String?   // Original author name
+  sourceDate      DateTime? // Original publication date
+  
+  // Relations
+  contentAccess  ContentAccess[]
+  
+  // SEO
+  metaTitle      String?
+  metaDescription String?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("stories")
+}
+
+model Program {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  shortDescription String?
+  slug          String   @unique
+  featuredImage String?
+  featuredVideo String?
+  impact        String?
+  location      String?
+  targetGroup   String?
+  isActive      Boolean  @default(true)
+  
+  // Program details
+  beneficiaries Int?     // Number of beneficiaries
+  duration      String?  // Program duration
+  budget        Int?     // Budget in cents
+  
+  // Program features/goals
+  features      String[] // Array of program features
+  goals         String[] // Array of program goals
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("programs")
+}
+
+model ContentAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  storyId   String
+  accessedAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, storyId])
+  @@map("content_access")
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  isRead    Boolean  @default(false)
+  isReplied Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contact_messages")
+}
+
+model Newsletter {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  isSubscribed   Boolean  @default(true)
+  subscribedAt   DateTime @default(now())
+  unsubscribedAt DateTime?
+  
+  // Preferences
+  preferences    String[] // Array of subscription preferences
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("newsletter_subscribers")
+}
+
+model Event {
+  id            String              @id @default(cuid())
+  title         String
+  description   String
+  eventDate     DateTime
+  eventTime     String
+  endTime       String?
+  location      String?
+  isVirtual     Boolean             @default(false)
+  meetingLink   String?
+  maxAttendees  Int?
+  featuredImage String?
+  category      String?
+  isPublished   Boolean             @default(true)
+  
+  // Relations
+  registrations EventRegistration[]
+  
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id              String   @id @default(cuid())
+  eventId         String
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  message         String?  // Optional message/questions from registrant
+  confirmationSent Boolean @default(false)
+  attended        Boolean  @default(false)
+  
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([eventId, email])
+  @@map("event_registrations")
+}
+
+model TeamMember {
+  id          String  @id @default(cuid())
+  name        String
+  position    String
+  bio         String?
+  image       String?
+  email       String?
+  linkedin    String?
+  x           String?  // Formerly Twitter
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("team_members")
+}
+
+model Analytics {
+  id          String   @id @default(cuid())
+  path        String
+  userAgent   String?
+  ipAddress   String?
+  referer     String?
+  userId      String?
+  sessionId   String?
+  
+  createdAt   DateTime @default(now())
+
+    @@map("analytics")
+}
+
+model VolunteerApplication {
+  id                String            @id @default(cuid())
+  
+  // Personal Information
+  firstName         String
+  lastName          String
+  email             String
+  phone             String
+  
+  // Location
+  country           String?
+  city              String?
+  address           String?
+  
+  // Professional Information
+  education         String?           // Highest level of education
+  currentOccupation String?
+  skills            String[]          // Array of skills
+  experience        String?           // Years of experience or description
+  
+  // Volunteer Information
+  position          String            // Position applying for
+  availability      String?           // Full-time, Part-time, Weekends, etc.
+  startDate         DateTime?         // When they can start
+  motivation        String            // Why they want to volunteer
+  previousVolunteer Boolean           @default(false)
+  previousVolunteerDetails String?
+  
+  // Additional Information
+  languages         String[]          // Languages spoken
+  references        String?           // References (JSON string or text)
+  resume            String?           // URL to resume/CV
+  linkedIn          String?
+  
+  // Application Status
+  status            ApplicationStatus @default(PENDING)
+  reviewedBy        String?           // Admin who reviewed
+  reviewedAt        DateTime?
+  reviewNotes       String?           // Admin's notes
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("volunteer_applications")
+}
+
+model OrganizationStats {
+  id                    String   @id @default(cuid())
+  
+  // Main Impact Stats (shown on homepage)
+  livesTransformed      Int      @default(25000)
+  programsActive        Int      @default(150)
+  countriesServed       Int      @default(12)
+  
+  // Detailed Impact Stats
+  livesChangedGreenSkills Int    @default(35)
+  womenYouthTrained     Int      @default(125)
+  communitiesReached    Int      @default(12)
+  activeCommunityMembers Int     @default(85)
+  
+  // Meta information
+  label                 String   @default("Current") // e.g., "Current", "2024 Stats"
+  isActive              Boolean  @default(true)
+  displayOrder          Int      @default(0)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("organization_stats")
+}
+
+enum ActivityLogAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  DONATE
+  DATABASE_BACKUP
+  API_ERROR
+  SETTINGS_CHANGE
+  USER_REGISTRATION
+  PASSWORD_RESET
+  EMAIL_SENT
+  FILE_UPLOAD
+  FILE_DELETE
+}
+
+enum ActivityLogStatus {
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+model ActivityLog {
+  id          String            @id @default(cuid())
+  action      ActivityLogAction
+  status      ActivityLogStatus @default(SUCCESS)
+  resource    String?           // e.g., "users", "donations", "stories"
+  resourceId  String?           // ID of the affected resource
+  details     String?           // Additional details in JSON or text
+  ipAddress   String?
+  userAgent   String?
+  
+  // User who performed the action
+  userId      String?
+  userEmail   String?
+  userName    String?
+  
+  createdAt   DateTime          @default(now())
+
+  @@index([action])
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+enum ReportType {
+  USER_ACTIVITY
+  FINANCIAL
+  SYSTEM_PERFORMANCE
+  CONTENT
+  SECURITY
+  ENGAGEMENT
+}
+
+enum ReportStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+model SystemReport {
+  id          String        @id @default(cuid())
+  type        ReportType
+  status      ReportStatus  @default(PENDING)
+  name        String
+  description String?
+  
+  // Report parameters (stored as JSON)
+  parameters  String?       // e.g., {"startDate": "2024-01-01", "endDate": "2024-12-31"}
+  
+  // Report results
+  filePath    String?       // Path to generated file
+  fileSize    Int?          // File size in bytes
+  fileUrl     String?       // URL to download the report
+  
+  // Scheduling
+  isScheduled Boolean       @default(false)
+  schedule    String?       // Cron expression for scheduled reports
+  nextRunAt   DateTime?
+  
+  // Metadata
+  generatedBy String?       // User ID who generated the report
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("system_reports")
+}
+
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // Store as JSON string for complex values
+  category  String   // e.g., "general", "email", "security", "performance"
+  
+  // Metadata
+  label       String?  // Human-readable label
+  description String?  // Description of the setting
+  dataType    String   @default("string") // "string", "number", "boolean", "json"
+  isEncrypted Boolean  @default(false) // For sensitive values
+  
+  updatedBy   String?  // User ID who last updated
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@map("system_settings")
+}
+
+enum SystemHealthStatus {
+  OPERATIONAL
+  DEGRADED
+  DOWN
+}
+
+model SystemHealth {
+  id          String              @id @default(cuid())
+  component   String              // e.g., "api", "database", "cache", "storage"
+  status      SystemHealthStatus  @default(OPERATIONAL)
+  responseTime Int?               // Response time in milliseconds
+  message     String?             // Status message or error
+  details     String?             // Additional details in JSON
+  
+  checkedAt   DateTime            @default(now())
+
+  @@index([component])
+  @@index([checkedAt])
+  @@map("system_health")
+}
+
