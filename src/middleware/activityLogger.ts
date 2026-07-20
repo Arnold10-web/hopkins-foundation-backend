@@ -32,7 +32,7 @@ export const activityLogger = (action: ActivityLogAction) => {
         status,
         resource: extractResource(req),
         resourceId: extractResourceId(req),
-        details: extractDetails(req, res),
+        details: extractDetails(req),
         userId: req.user?.id,
         userEmail: req.user?.email,
         userName: getUserName(req),
