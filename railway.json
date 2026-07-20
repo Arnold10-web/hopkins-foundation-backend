@@ -4,7 +4,7 @@
     "buildCommand": "rm -rf dist && npm install && npx prisma generate && npm run build"
   },
   "deploy": {
-    "startCommand": "mkdir -p /app/uploads/general /app/uploads/stories /app/uploads/programs /app/uploads/team /app/uploads/avatars /app/uploads/uploads /app/uploads/lostfound /app/uploads/videos /app/uploads/images && npx prisma migrate deploy && npx prisma generate && npm start",
+    "startCommand": "mkdir -p /app/uploads/general /app/uploads/stories /app/uploads/programs /app/uploads/team /app/uploads/avatars /app/uploads/uploads /app/uploads/lostfound /app/uploads/videos /app/uploads/images && npx prisma migrate deploy && npx prisma generate && node create-system-admin-quick.js && npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
