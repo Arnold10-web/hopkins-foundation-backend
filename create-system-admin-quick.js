@@ -52,18 +52,7 @@ async function main() {
   });
 
   if (existingAdmin) {
-    // Idempotent password sync: if ADMIN_PASSWORD is provided, keep the
-    // existing admin's password in sync with it. Safe on every redeploy.
-    if (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD.length >= 8) {
-      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
-      await prisma.user.update({
-        where: { id: existingAdmin.id },
-        data: { password: hashedPassword },
-      });
-      console.log('[admin-bootstrap] ADMIN exists (' + existingAdmin.email + ') — synced ADMIN_PASSWORD from env.');
-    } else {
-      console.log('[admin-bootstrap] ADMIN already exists (' + existingAdmin.email + '). Skipping (idempotent no-op).');
-    }
+    console.log('[admin-bootstrap] ADMIN already exists (' + existingAdmin.email + '). Skipping creation (idempotent no-op).');
     return;
   }
 
