@@ -37,7 +37,7 @@ if (SENDGRID_CONFIG.apiKey) {
   console.log('✅ SendGrid initialized successfully');
   
   const configuredTemplates = Object.entries(SENDGRID_CONFIG.templates)
-    .filter(([_templateId, id]) => id)
+    .filter(([, id]) => id)
     .map(([name]) => name);
   
   if (configuredTemplates.length > 0) {
