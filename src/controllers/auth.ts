@@ -45,10 +45,13 @@ export const register = async (req: Request, res: Response) => {
   try {
     // Validate input
     const validatedData = RegisterSchema.parse(req.body);
+    const email = validatedData.email.trim().toLowerCase();
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+      },
     });
 
     if (existingUser) {
@@ -66,7 +69,7 @@ export const register = async (req: Request, res: Response) => {
     // Create user
     const user = await prisma.user.create({
       data: {
-        email: validatedData.email,
+        email,
         password: hashedPassword,
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
@@ -117,11 +120,27 @@ export const login = async (req: Request, res: Response) => {
   try {
     // Validate input
     const validatedData = LoginSchema.parse(req.body);
+    const email = validatedData.email.trim().toLowerCase();
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+    // Find user (email is stored lowercase; also try exact match for legacy rows)
+    let user = await prisma.user.findUnique({
+      where: { email },
     });
+
+    if (!user && email !== validatedData.email) {
+      user = await prisma.user.findUnique({
+        where: { email: validatedData.email.trim() },
+      });
+    }
+
+    // Case-insensitive fallback for accounts created before email normalization
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          email: { equals: email, mode: 'insensitive' },
+        },
+      });
+    }
 
     if (!user) {
       res.status(401).json({
