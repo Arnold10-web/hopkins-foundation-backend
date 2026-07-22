@@ -67,7 +67,9 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'https://hopkinsfoundation.org',
-  'https://www.hopkinsfoundation.org'
+  'https://www.hopkinsfoundation.org',
+  'https://hopkinsfoundationco.org',
+  'https://www.hopkinsfoundationco.org',
 ];
 
 app.use(cors({
