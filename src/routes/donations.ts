@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   createDonation,
+  createPledge,
   getUserDonations,
   getAllDonations,
   getDonationById,
@@ -10,6 +11,13 @@ import {
 import { authenticateToken, requireAdmin } from '../middleware/auth';
 
 const router = express.Router();
+
+/**
+ * @route POST /api/donations/pledge
+ * @description Create a donation pledge (no auth required)
+ * @access Public
+ */
+router.post('/pledge', createPledge);
 
 /**
  * @route POST /api/donations

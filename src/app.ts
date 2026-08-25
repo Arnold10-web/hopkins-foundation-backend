@@ -190,6 +190,8 @@ app.get('/api/health', (req, res) => {
 // Public endpoint to get hero image settings
 const HERO_SETTINGS_FILE = path.join(__dirname, '../uploads/hero-settings.json');
 const OUR_STORY_SETTINGS_FILE = path.join(__dirname, '../uploads/our-story-settings.json');
+const ABOUT_PAGE_FILE = path.join(__dirname, '../uploads/about-page-content.json');
+const BANK_DETAILS_FILE = path.join(__dirname, '../uploads/bank-details.json');
 
 app.get('/api/settings/hero-image', (req, res) => {
   try {
@@ -220,6 +222,36 @@ app.get('/api/settings/our-story-image', (req, res) => {
   } catch (error) {
     console.error('Error reading our story settings:', error);
     res.json({ ourStoryImage: null });
+  }
+});
+
+app.get('/api/settings/about-page', (req, res) => {
+  try {
+    if (fs.existsSync(ABOUT_PAGE_FILE)) {
+      const data = fs.readFileSync(ABOUT_PAGE_FILE, 'utf8');
+      const settings = JSON.parse(data);
+      res.json(settings);
+    } else {
+      res.json({ content: null });
+    }
+  } catch (error) {
+    console.error('Error reading about page content:', error);
+    res.json({ content: null });
+  }
+});
+
+app.get('/api/settings/bank-details', (req, res) => {
+  try {
+    if (fs.existsSync(BANK_DETAILS_FILE)) {
+      const data = fs.readFileSync(BANK_DETAILS_FILE, 'utf8');
+      const settings = JSON.parse(data);
+      res.json(settings);
+    } else {
+      res.json({ bankDetails: null });
+    }
+  } catch (error) {
+    console.error('Error reading bank details:', error);
+    res.json({ bankDetails: null });
   }
 });
 

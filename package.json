@@ -5,7 +5,7 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/app.js",
+    "start": "npx prisma migrate deploy && node dist/app.js",
     "dev": "nodemon src/app.ts",
     "dev:watch": "nodemon --exec ts-node src/app.ts",
     "test": "jest",

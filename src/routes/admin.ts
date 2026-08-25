@@ -16,7 +16,8 @@ import {
   getAllUsers,
   getAllDonations,
   getContactMessages,
-  markMessageAsRead
+  markMessageAsRead,
+  autoComputeStats
 } from '../controllers/admin';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
 
@@ -28,6 +29,8 @@ import path from 'path';
 
 const HERO_SETTINGS_FILE = path.join(__dirname, '../../uploads/hero-settings.json');
 const OUR_STORY_SETTINGS_FILE = path.join(__dirname, '../../uploads/our-story-settings.json');
+const ABOUT_PAGE_FILE = path.join(__dirname, '../../uploads/about-page-content.json');
+const BANK_DETAILS_FILE = path.join(__dirname, '../../uploads/bank-details.json');
 
 /**
  * @route POST /api/admin/settings/hero-image
@@ -84,6 +87,67 @@ router.post('/settings/our-story-image', authenticateToken, requireAdmin, async 
   } catch (error) {
     console.error('Error saving our story image:', error);
     return res.status(500).json({ error: 'Failed to save our story image' });
+  }
+});
+
+/**
+ * @route POST /api/admin/settings/about-page
+ * @description Save about page content (admin only)
+ * @access Private (admin only)
+ */
+router.post('/settings/about-page', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ error: 'About page content is required' });
+    }
+
+    const uploadsDir = path.dirname(ABOUT_PAGE_FILE);
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    fs.writeFileSync(ABOUT_PAGE_FILE, JSON.stringify({ content }, null, 2));
+    
+    return res.json({ success: true, message: 'About page content saved successfully' });
+  } catch (error) {
+    console.error('Error saving about page content:', error);
+    return res.status(500).json({ error: 'Failed to save about page content' });
+  }
+});
+
+/**
+ * @route POST /api/admin/settings/bank-details
+ * @description Save bank details for donation pledges (admin only)
+ * @access Private (admin only)
+ */
+router.post('/settings/bank-details', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { bankName, accountName, accountNumber, branch, swiftCode, mobileMoney, mobileMoneyNumber, instructions } = req.body;
+
+    const uploadsDir = path.dirname(BANK_DETAILS_FILE);
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const bankDetails = {
+      bankName: bankName || '',
+      accountName: accountName || '',
+      accountNumber: accountNumber || '',
+      branch: branch || '',
+      swiftCode: swiftCode || '',
+      mobileMoney: mobileMoney || '',
+      mobileMoneyNumber: mobileMoneyNumber || '',
+      instructions: instructions || '',
+    };
+
+    fs.writeFileSync(BANK_DETAILS_FILE, JSON.stringify({ bankDetails }, null, 2));
+    
+    return res.json({ success: true, message: 'Bank details saved successfully' });
+  } catch (error) {
+    console.error('Error saving bank details:', error);
+    return res.status(500).json({ error: 'Failed to save bank details' });
   }
 });
 
@@ -226,5 +290,14 @@ router.get('/messages', authenticateToken, requireAdmin, getContactMessages);
  * @access Private (admin only)
  */
 router.put('/messages/:id/read', authenticateToken, requireAdmin, markMessageAsRead);
+
+// ==================== AUTO-COMPUTE STATS ====================
+
+/**
+ * @route GET /api/admin/compute-stats
+ * @description Auto-compute organization stats from live database data
+ * @access Private (admin only)
+ */
+router.get('/compute-stats', authenticateToken, requireAdmin, autoComputeStats);
 
 export default router;

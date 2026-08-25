@@ -109,6 +109,7 @@ model Story {
   slug            String    @unique
   featuredImage   String?
   featuredVideo   String?
+  images          String[]
   isPublished     Boolean   @default(false)
   publishedAt     DateTime?
   category        String?
@@ -144,6 +145,7 @@ model Program {
   slug          String   @unique
   featuredImage String?
   featuredVideo String?
+  images        String[]
   impact        String?
   location      String?
   targetGroup   String?

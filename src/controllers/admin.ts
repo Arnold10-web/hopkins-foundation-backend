@@ -281,6 +281,7 @@ export const createStory = async (req: Request, res: Response): Promise<void> =>
       slug,
       featuredImage,
       featuredVideo,
+      images,
       isPublished,
       category,
       tags,
@@ -310,6 +311,7 @@ export const createStory = async (req: Request, res: Response): Promise<void> =>
         slug,
         featuredImage,
         featuredVideo,
+        images: Array.isArray(images) ? images : [],
         isPublished: isPublished || false,
         publishedAt: isPublished ? new Date() : null,
         category,
@@ -342,13 +344,50 @@ export const createStory = async (req: Request, res: Response): Promise<void> =>
 export const updateStory = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const updateData = req.body;
+    const rawData = req.body;
+
+    // Only pass fields that exist in the Prisma Story schema
+    const allowedFields = [
+      'title', 'content', 'excerpt', 'slug', 'featuredImage', 'featuredVideo', 'images',
+      'isPublished', 'publishedAt', 'category', 'tags', 'readTime', 'views',
+      'isExternal', 'sourceUrl', 'sourceName', 'sourceAuthor', 'sourceDate',
+      'metaTitle', 'metaDescription'
+    ];
+    const updateData: any = {};
+    for (const key of allowedFields) {
+      if (rawData[key] !== undefined) {
+        updateData[key] = rawData[key];
+      }
+    }
+
+    // Sanitize empty strings to null for nullable fields
+    const nullableFields = ['featuredImage', 'featuredVideo', 'category', 'sourceUrl', 'sourceName', 'sourceAuthor', 'sourceDate', 'metaTitle', 'metaDescription'];
+    nullableFields.forEach(field => {
+      if (updateData[field] === '' || updateData[field] === undefined) {
+        updateData[field] = null;
+      }
+    });
+
+    // Convert sourceDate string to Date object if present
+    if (updateData.sourceDate && typeof updateData.sourceDate === 'string') {
+      updateData.sourceDate = new Date(updateData.sourceDate);
+    }
 
     // If content is updated, recalculate read time
     if (updateData.content) {
       const wordsPerMinute = 200;
       const wordCount = updateData.content.split(/\s+/).length;
       updateData.readTime = Math.ceil(wordCount / wordsPerMinute);
+    }
+
+    // Ensure tags is an array
+    if (!Array.isArray(updateData.tags)) {
+      updateData.tags = [];
+    }
+
+    // Ensure images is an array
+    if (!Array.isArray(updateData.images)) {
+      updateData.images = [];
     }
 
     const story = await prisma.story.update({
@@ -460,6 +499,7 @@ export const createProgram = async (req: Request, res: Response): Promise<void> 
       shortDescription,
       featuredImage,
       featuredVideo,
+      images,
       location,
       targetGroup,
       duration,
@@ -491,6 +531,7 @@ export const createProgram = async (req: Request, res: Response): Promise<void> 
         shortDescription: shortDescription || description.substring(0, 200),
         featuredImage,
         featuredVideo,
+        images: Array.isArray(images) ? images : [],
         location,
         targetGroup,
         duration,
@@ -734,5 +775,71 @@ export const markMessageAsRead = async (req: Request, res: Response): Promise<vo
   } catch (error) {
     console.error('Error marking message as read:', error);
     res.status(500).json({ error: 'Failed to mark message as read' });
+  }
+};
+
+// ==================== AUTO-COMPUTE STATS ====================
+
+export const autoComputeStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Compute stats from real data in the database
+    const [
+      totalUsers,
+      activePrograms,
+      totalDonations,
+      completedDonations,
+      totalEvents,
+      volunteerApplications,
+      publishedStories,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.program.count({ where: { isActive: true } }),
+      prisma.donation.count(),
+      prisma.donation.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true }, _count: true }),
+      prisma.event.count(),
+      prisma.volunteerApplication.findMany({
+        select: { country: true, city: true, skills: true }
+      }),
+      prisma.story.count({ where: { isPublished: true } }),
+    ]);
+
+    // Derive communities from unique locations
+    const uniqueCities = new Set(
+      volunteerApplications
+        .map(v => v.city)
+        .filter(Boolean)
+    );
+
+    // Derive countries
+    const uniqueCountries = new Set(
+      volunteerApplications
+        .map(v => v.country)
+        .filter(Boolean)
+    );
+
+    // Women & youth trained: approximate from volunteer applications + event registrations
+    const totalEventRegistrations = await prisma.eventRegistration.count();
+
+    // Compute stats
+    const computedStats = {
+      livesTransformed: completedDonations._count || 0,
+      programsActive: activePrograms,
+      countriesServed: Math.max(uniqueCountries.size, 1),
+      livesChangedGreenSkills: Math.min(Math.round((totalEventRegistrations / Math.max(totalUsers, 1)) * 100), 100) || 35,
+      womenYouthTrained: totalEventRegistrations + volunteerApplications.length,
+      communitiesReached: Math.max(uniqueCities.size, 1),
+      activeCommunityMembers: totalUsers,
+    };
+
+    console.log('📊 Auto-computed stats:', computedStats);
+
+    res.json({
+      success: true,
+      data: computedStats,
+      message: 'Stats computed from live data'
+    });
+  } catch (error) {
+    console.error('Error auto-computing stats:', error);
+    res.status(500).json({ error: 'Failed to auto-compute stats' });
   }
 };

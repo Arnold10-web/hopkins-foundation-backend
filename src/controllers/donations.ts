@@ -70,6 +70,63 @@ export const createDonation = async (req: Request, res: Response) => {
   }
 };
 
+// Create donation pledge (no auth required)
+const PledgeSchema = z.object({
+  amount: z.number().min(1, 'Minimum donation is $1'),
+  currency: z.string().default('USD'),
+  type: z.enum(['ONE_TIME', 'RECURRING']).default('ONE_TIME'),
+  donorName: z.string().min(1, 'Name is required'),
+  donorEmail: z.string().email('Valid email is required'),
+  message: z.string().optional(),
+});
+
+export const createPledge = async (req: Request, res: Response) => {
+  try {
+    const validatedData = PledgeSchema.parse(req.body);
+
+    const reference = `HF-${Date.now().toString(36).toUpperCase()}`;
+
+    const donation = await prisma.donation.create({
+      data: {
+        amount: Math.round(validatedData.amount * 100),
+        currency: validatedData.currency.toUpperCase(),
+        type: validatedData.type,
+        donorName: validatedData.donorName,
+        donorEmail: validatedData.donorEmail,
+        campaign: validatedData.message || undefined,
+        paymentId: reference,
+        status: 'PENDING',
+      },
+    });
+
+    res.status(201).json({
+      message: 'Donation pledge created successfully',
+      donation: {
+        id: donation.id,
+        reference,
+        amount: donation.amount / 100,
+        currency: donation.currency,
+        type: donation.type,
+        status: donation.status,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        error: 'Validation error',
+        details: error.issues,
+      });
+      return;
+    }
+
+    console.error('Create pledge error:', error);
+    res.status(500).json({
+      error: 'Failed to create pledge',
+      message: 'Internal server error',
+    });
+  }
+};
+
 // Get user donations
 export const getUserDonations = async (req: Request, res: Response) => {
   try {
